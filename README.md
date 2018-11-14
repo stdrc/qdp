@@ -1,0 +1,9 @@
+# QDP (QQ-based Datagram Protocol)
+
+QDP is a transport protocol based on QQ messages, using "[酷Q](https://cqp.cc)" and "[CQHTTP](https://cqhttp.cc)" as it's underlying QQ bot framework. It can transfer any binary data through QQ messages, and do the fragmentation and reassembly things automatically.
+
+Currently, QDP is just a proof of concept. The transfer rate is very very low, which according to limited tests, is around 20~30 Kbps (at 5 msg/s).
+
+In QDP, QQ number is used as something like IP address. The concept "packet" is similar to the one in UDP, and "fragment" is similar to IP fragment.
+
+This repo contains a rough implementation of QDP in Python. You can check the [demo](demo) to see how the interfaces are.
