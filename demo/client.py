@@ -7,13 +7,13 @@ from demo import config
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-qdp.init(config.CQHTTP_WS_BASE_URL_MAPPING)
+qdp.init(config.CQHTTP_WS_URL_MAPPING)
 logging.info('QDP service initialized')
 
 
 async def main():
     sock = qdp.Socket()
-    await sock.bind((2910007356, None))
+    await sock.bind((2474763007, None))
     logging.info('QDP socket created')
 
     addr = (3281334718, 12345)

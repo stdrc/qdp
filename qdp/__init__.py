@@ -15,20 +15,19 @@ MAGIC_PREFIX = '<<<42>>>~'
 MTU = int(4500 * 3 / 4)  # bytes, 3/4 is because we will send base64
 MAX_FRAGMENT_SIZE = MTU - len(MAGIC_PREFIX.encode('ascii'))
 
-_qq_ws_base_url_mapping: Dict[int, str] = {}
+_qq_ws_url_mapping: Dict[int, str] = {}
 
 
 def init(mapping: Dict[int, str]):
-    global _qq_ws_base_url_mapping
-    _qq_ws_base_url_mapping = mapping.copy()
+    global _qq_ws_url_mapping
+    _qq_ws_url_mapping = mapping.copy()
 
 
 class Socket:
     def __init__(self):
         self.addr = None
-        self.cqhttp_ws_base_url = None
-        self.cqhttp_ws_api = None
-        self.cqhttp_ws_event = None
+        self.cqhttp_ws_url = None
+        self.cqhttp_ws = None
 
         # elem type: Tuple[src_qq, dst_qq, packet]
         self.recv_queue = None
@@ -36,8 +35,8 @@ class Socket:
     async def bind(self, addr: Tuple[int, Optional[int]]):
         qq, port = addr
 
-        ws_base_url = _qq_ws_base_url_mapping.get(qq)
-        if not ws_base_url:
+        ws_url = _qq_ws_url_mapping.get(qq)
+        if not ws_url:
             raise LookupError('there is no such qq that can be bound')
 
         if port is None:
@@ -48,23 +47,20 @@ class Socket:
                 raise RuntimeError('the port specified is in use')
 
         self.addr = qq, port
-        self.cqhttp_ws_base_url = ws_base_url
+        self.cqhttp_ws_url = ws_url
+        await self._connect_cqhttp_ws()
         self.recv_queue = asyncio.Queue()
-        await self._connect_cqhttp()
         asyncio.create_task(self._listen_cqhttp_event())
 
         _socket_registry[self.addr] = self
 
     async def close(self):
-        if self.cqhttp_ws_api:
-            await self.cqhttp_ws_api.close()
-            self.cqhttp_ws_api = None
-        if self.cqhttp_ws_event:
-            await self.cqhttp_ws_event.close()
-            self.cqhttp_ws_event = None
+        if self.cqhttp_ws:
+            await self.cqhttp_ws.close()
+        self.cqhttp_ws = None
         if self.addr in _socket_registry:
             del _socket_registry[self.addr]
-            self.addr = None
+        self.addr = None
         self.recv_queue = None
 
     async def sendto(self, data: bytes, addr: Tuple[int, int]):
@@ -92,12 +88,12 @@ class Socket:
             data=packet_data
         ))
 
-        if self.cqhttp_ws_api:
+        if self.cqhttp_ws:
             for fragment in fragments:
                 fragment_data = fragment.to_bytes()
                 msg = base64.b64encode(fragment_data).decode('ascii')
-                await self.cqhttp_ws_api.send(json.dumps({
-                    'action': 'send_private_msg_async_rate_limited',
+                await self.cqhttp_ws.send(json.dumps({
+                    'action': 'send_private_msg_rate_limited',
                     'params': {
                         'user_id': addr[0],
                         'message': MAGIC_PREFIX + msg
@@ -108,17 +104,14 @@ class Socket:
         src_qq, _, packet = await self.recv_queue.get()
         return packet.data, (src_qq, packet.src_port)
 
-    async def _connect_cqhttp(self):
-        self.cqhttp_ws_api = await websockets.connect(
-            self.cqhttp_ws_base_url.rstrip('/') + '/api/')
-        self.cqhttp_ws_event = await websockets.connect(
-            self.cqhttp_ws_base_url.rstrip('/') + '/event/')
+    async def _connect_cqhttp_ws(self):
+        self.cqhttp_ws = await websockets.connect(self.cqhttp_ws_url)
 
     async def _listen_cqhttp_event(self):
         buffer = defaultdict(set)  # key: packet id, value: Set[fragment]
         while True:
             try:
-                payload = json.loads(await self.cqhttp_ws_event.recv())
+                payload = json.loads(await self.cqhttp_ws.recv())
                 if payload['post_type'] != 'message' or \
                         payload['message_type'] != 'private':
                     continue
@@ -158,14 +151,12 @@ class Socket:
                         # it's not for this socket
                         continue
 
-                    await self.recv_queue.put(
-                        (src_qq, dst_qq, packet)
-                    )
+                    await self.recv_queue.put((src_qq, dst_qq, packet))
             except (json.JSONDecodeError, KeyError):
                 continue
             except websockets.exceptions.ConnectionClosed as e:
                 if e.code != 1000:
-                    await self._connect_cqhttp()
+                    await self._connect_cqhttp_ws()
                 else:
                     break
 

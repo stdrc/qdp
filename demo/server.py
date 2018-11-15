@@ -7,7 +7,7 @@ from demo import config
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-qdp.init(config.CQHTTP_WS_BASE_URL_MAPPING)
+qdp.init(config.CQHTTP_WS_URL_MAPPING)
 logging.info('QDP service initialized')
 
 
