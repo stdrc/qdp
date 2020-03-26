@@ -6,7 +6,7 @@ Currently, QDP is just a proof of concept. The transfer rate is very very low, w
 
 In QDP, QQ number is used as something like IP address. The concept "packet" is similar to the one in UDP, and "fragment" is similar to IP fragment.
 
-This repo contains a rough implementation of QDP in Python, using "[酷Q](https://cqp.cc)" and "[CQHTTP](https://cqhttp.cc)" as it's underlying QQ bot framework. You can check the [demo](demo) to see how the interfaces are.
+This repo contains a rough implementation of QDP in Python, using "[酷Q](https://cqp.cc)" and "[CQHTTP](https://cqhttp.cc)" as its underlying QQ bot framework. You can check the [demo](demo) to see how the interfaces are.
 
 To run the demos in this repo, you need to config CQHTTP as following:
 
